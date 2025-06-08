@@ -1,123 +1,117 @@
 using UnityEngine;
-using UnityEngine.EventSystems; // Diperlukan untuk menangani event pada UI
+using UnityEngine.EventSystems;
 
 public class PlayerController : MonoBehaviour
 {
+    // --- PENGATURAN PUBLIK ---
+    [Header("Komponen & Pengaturan")]
     public Rigidbody2D rb;
     public Animator anim;
-    public float moveSpeed = 3.5f; // Kecepatan gerak player
-    public float jumpForce = 5f;   // Kekuatan lompat player
+    
+    [Header("Statistik Gerakan")]
+    public float moveSpeed = 3.5f;
+    public float jumpForce = 15f;
 
+    // --- VARIABEL INTERNAL ---
     private bool moveRightPressed = false;
     private bool moveLeftPressed = false;
+    private bool isGrounded = false;
 
-    // Start is called before the first frame update
+    // Fungsi Start dipanggil sekali saat game dimulai
     void Start()
     {
-        // Pastikan Rigidbody2D dan Animator sudah di-assign di Inspector
-        if (rb == null)
-        {
-            rb = GetComponent<Rigidbody2D>();
-        }
-        if (anim == null)
-        {
-            anim = GetComponent<Animator>();
-        }
+        if (rb == null) rb = GetComponent<Rigidbody2D>();
+        if (anim == null) anim = GetComponent<Animator>();
     }
 
-    // Update is called once per frame
+    // Fungsi Update dipanggil setiap frame, cocok untuk input
     void Update()
     {
-        // Proses input dari keyboard (untuk testing di Unity Editor)
         HandleKeyboardInput();
+        UpdateAnimatorParameters();
+    }
 
-        // Proses pergerakan berdasarkan status tombol UI
+    // FixedUpdate dipanggil dalam interval waktu yang tetap, cocok untuk fisika.
+    void FixedUpdate()
+    {
         HandleMovement();
     }
 
+    // Mengelola semua input
     void HandleKeyboardInput()
     {
-        // Tombol D untuk bergerak ke kanan
-        if (Input.GetKeyDown(KeyCode.D))
-        {
-            PressRight();
-        }
-        if (Input.GetKeyUp(KeyCode.D))
-        {
-            ReleaseRight();
-        }
+        if (Input.GetKeyDown(KeyCode.D)) PressRight();
+        if (Input.GetKeyUp(KeyCode.D)) ReleaseRight();
 
-        // Tombol A untuk bergerak ke kiri
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-            PressLeft();
-        }
-        if (Input.GetKeyUp(KeyCode.A))
-        {
-            ReleaseLeft();
-        }
+        if (Input.GetKeyDown(KeyCode.A)) PressLeft();
+        if (Input.GetKeyUp(KeyCode.A)) ReleaseLeft();
 
-        // Tombol Spasi untuk melompat
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            PressJump();
-        }
+        if (Input.GetKeyDown(KeyCode.Space)) PressJump();
     }
 
+    // Menerapkan perubahan fisika berdasarkan input
     void HandleMovement()
     {
         if (moveRightPressed)
         {
             rb.velocity = new Vector2(moveSpeed, rb.velocity.y);
-            transform.localScale = new Vector2(1, 1); // Menghadap ke kanan
-            anim.SetBool("running", true);
+            transform.localScale = new Vector2(1, 1);
         }
         else if (moveLeftPressed)
         {
             rb.velocity = new Vector2(-moveSpeed, rb.velocity.y);
-            transform.localScale = new Vector2(-1, 1); // Menghadap ke kiri
-            anim.SetBool("running", true);
+            transform.localScale = new Vector2(-1, 1);
         }
         else
         {
-            // Berhenti bergerak horizontal jika tidak ada tombol arah yang ditekan
             rb.velocity = new Vector2(0, rb.velocity.y);
-            anim.SetBool("running", false);
+        }
+    }
+    
+    // Mengupdate semua parameter di Animator
+    void UpdateAnimatorParameters()
+    {
+        anim.SetBool("isGrounded", isGrounded);
+        bool isRunning = Mathf.Abs(rb.velocity.x) > 0.1f && isGrounded;
+        anim.SetBool("running", isRunning);
+    }
+
+    // --- FUNGSI PUBLIK UNTUK TOMBOL UI ---
+    public void PressRight() { moveRightPressed = true; moveLeftPressed = false; }
+    public void ReleaseRight() { moveRightPressed = false; }
+    public void PressLeft() { moveLeftPressed = true; moveRightPressed = false; }
+    public void ReleaseLeft() { moveLeftPressed = false; }
+
+    public void PressJump()
+    {
+        if (isGrounded)
+        {
+            rb.AddForce(new Vector2(0f, jumpForce), ForceMode2D.Impulse);
+            anim.SetTrigger("jump");
         }
     }
 
-    // Public methods untuk dihubungkan dengan tombol UI
+    // --- FUNGSI DETEKSI FISIKA (PERBAIKAN UTAMA) ---
 
-    // Dipanggil saat tombol KANAN ditekan
-    public void PressRight()
+    // Fungsi ini dipanggil setiap frame selama collider bersentuhan
+    private void OnCollisionStay2D(Collision2D collision)
     {
-        moveRightPressed = true;
-        moveLeftPressed = false; // Pastikan tidak bergerak ke kiri secara bersamaan
+        // Cek semua titik kontak dengan permukaan
+        foreach (ContactPoint2D contact in collision.contacts)
+        {
+            // Jika kita menemukan satu saja titik kontak yang valid sebagai pijakan (di bawah pemain),
+            // maka kita anggap pemain sedang di darat.
+            if (contact.normal.y > 0.7f)
+            {
+                isGrounded = true;
+                return; // Keluar dari loop dan fungsi, karena sudah pasti di darat
+            }
+        }
     }
 
-    // Dipanggil saat tombol KANAN dilepas
-    public void ReleaseRight()
+    // Saat berhenti bersentuhan dengan APAPUN, sudah pasti di udara.
+    private void OnCollisionExit2D(Collision2D collision)
     {
-        moveRightPressed = false;
-    }
-
-    // Dipanggil saat tombol KIRI ditekan
-    public void PressLeft()
-    {
-        moveLeftPressed = true;
-        moveRightPressed = false; // Pastikan tidak bergerak ke kanan secara bersamaan
-    }
-
-    // Dipanggil saat tombol KIRI dilepas
-    public void ReleaseLeft()
-    {
-        moveLeftPressed = false;
-    }
-
-    // Dipanggil saat tombol LOMPAT ditekan
-    public void PressJump()
-    {
-        // Tambahkan pengecekan "isGrounded" jika diperlukan agar tidak lompat di udara
-        rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+        isGrounded = false;
     }
 }
