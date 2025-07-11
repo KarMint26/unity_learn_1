@@ -7,10 +7,17 @@ public class PlayerController : MonoBehaviour
     [Header("Komponen & Pengaturan")]
     public Rigidbody2D rb;
     public Animator anim;
-    
+
     [Header("Statistik Gerakan")]
     public float moveSpeed = 3.5f;
     public float jumpForce = 15f;
+
+    // --- TAMBAHAN UNTUK MENEMBAK ---
+    [Header("Pengaturan Tembak")]
+    public GameObject peluruPrefab;      // Slot untuk Prefab peluru
+    public Transform titikTembak;        // Titik munculnya peluru
+    public float kecepatanPeluru = 10f;  // Kecepatan peluru
+    // ---------------------------------
 
     // --- VARIABEL INTERNAL ---
     private bool moveRightPressed = false;
@@ -47,6 +54,12 @@ public class PlayerController : MonoBehaviour
         if (Input.GetKeyUp(KeyCode.A)) ReleaseLeft();
 
         if (Input.GetKeyDown(KeyCode.Space)) PressJump();
+        
+        // TAMBAHAN: Input keyboard untuk testing tembak
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            Tembak();
+        }
     }
 
     // Menerapkan perubahan fisika berdasarkan input
@@ -67,7 +80,7 @@ public class PlayerController : MonoBehaviour
             rb.velocity = new Vector2(0, rb.velocity.y);
         }
     }
-    
+
     // Mengupdate semua parameter di Animator
     void UpdateAnimatorParameters()
     {
@@ -91,25 +104,38 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // --- FUNGSI DETEKSI FISIKA (PERBAIKAN UTAMA) ---
+    // --- FUNGSI BARU UNTUK MENEMBAK ---
+    public void Tembak()
+    {
+        if (peluruPrefab != null && titikTembak != null)
+        {
+            // Buat instance/copy dari prefab peluru di posisi dan rotasi titikTembak
+            GameObject peluru = Instantiate(peluruPrefab, titikTembak.position, titikTembak.rotation);
+            Rigidbody2D rbPeluru = peluru.GetComponent<Rigidbody2D>();
 
-    // Fungsi ini dipanggil setiap frame selama collider bersentuhan
+            // Beri kecepatan pada peluru
+            // transform.localScale.x akan bernilai 1 jika menghadap kanan, dan -1 jika menghadap kiri
+            rbPeluru.velocity = new Vector2(kecepatanPeluru * transform.localScale.x, 0f);
+        }
+        else
+        {
+            Debug.LogWarning("Peluru Prefab atau Titik Tembak belum di-assign di Inspector!");
+        }
+    }
+
+    // --- FUNGSI DETEKSI FISIKA ---
     private void OnCollisionStay2D(Collision2D collision)
     {
-        // Cek semua titik kontak dengan permukaan
         foreach (ContactPoint2D contact in collision.contacts)
         {
-            // Jika kita menemukan satu saja titik kontak yang valid sebagai pijakan (di bawah pemain),
-            // maka kita anggap pemain sedang di darat.
             if (contact.normal.y > 0.7f)
             {
                 isGrounded = true;
-                return; // Keluar dari loop dan fungsi, karena sudah pasti di darat
+                return;
             }
         }
     }
 
-    // Saat berhenti bersentuhan dengan APAPUN, sudah pasti di udara.
     private void OnCollisionExit2D(Collision2D collision)
     {
         isGrounded = false;
