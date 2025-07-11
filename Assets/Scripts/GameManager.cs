@@ -37,7 +37,7 @@ public class GameManager : MonoBehaviour
     {
         if (teksKoin != null)
         {
-            teksKoin.text = "Koin: " + jumlahKoin;
+            teksKoin.text = " " + jumlahKoin;
         }
     }
 }
